@@ -1,0 +1,9 @@
+# IDE files
+.vscode/
+
+# Output files
+/sim/
+/waves/
+
+# Workflow files
+Makefile
