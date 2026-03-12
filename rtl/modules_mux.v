@@ -10,122 +10,113 @@
 // --------------------------------------------------------
 
 module clockDivider1(
+    input clki,
+    output clko);
+
     // Clock para o parâmetro Tz. Lembrando que Tx=4.Tz
-    // 450m/min: período=3141, DIV=1570
-    // 600m/min: período=2356, DIV=1178
-    input  clki,
-    output clko
-);
+    // 450m/min: DIV=3141
+    // 600m/min: DIV=2356
+    parameter DIV = 1178;
+    reg [11:0] count = 0;
+    reg out = 0;
 
-parameter DIV = 1178;
-
-reg [11:0] count = 0;
-reg out = 0;
-
-always @(posedge clki) begin
-    if (count == DIV) begin
-        count <= 0;
-        out <= ~out;
+    always@(posedge clki) begin
+        if( count == DIV ) begin
+            count <= 0;
+            out <= ~out;
+        end
+        else count <= count+1;
     end
-    else begin
-        count <= count + 1;
-    end
-end
 
-assign clko = out;
-
+    assign clko = out;
 endmodule
+
+// -------------------------------------------------------- 
+// Clock divider 2^n
+ // -------------------------------------------------------
+ module clockDiv2n( 
+	 input clki, 
+	 output reg [31:0] clko 
+ ); 
+ 
+ reg [31:0] counter; 
+ 
+ always@(posedge clki) 
+	 begin counter <= counter + 1; 
+	 clko <= counter; 
+ end 
+ 
+ endmodule
 
 // --------------------------------------------------------
 // (1) Gerador dos sinais X e Y do encoder (500 pulsos por volta)
 // --------------------------------------------------------
 
-module genXY(
-    input clkTz,
-    output X,
-    output Y
-);
+module genXY(input clkTz, output X, Y );
+    reg outX = 0;
+    reg outY = 0;
+    reg [1:0] count = 0;
 
-reg outX = 0;
-reg outY = 0;
-reg [1:0] count = 0;
+    always@(posedge clkTz) count <= count + 1;
 
-always @(posedge clkTz)
-    count <= count + 1;
+    always@(count) begin
+        case(count)
+        0: begin outX <= 1'b1; outY <= 1'b0; end
+        1: begin outX <= 1'b1; outY <= 1'b1; end
+        2: begin outX <= 1'b0; outY <= 1'b1; end
+        3: begin outX <= 1'b0; outY <= 1'b0; end
+        endcase
+    end
 
-always @(*) begin
-    case(count)
-        2'd0: begin outX = 1'b1; outY = 1'b0; end
-        2'd1: begin outX = 1'b1; outY = 1'b1; end
-        2'd2: begin outX = 1'b0; outY = 1'b1; end
-        2'd3: begin outX = 1'b0; outY = 1'b0; end
-    endcase
-end
-
-assign X = outX;
-assign Y = outY;
-
+    assign X = outX;
+    assign Y = outY;
 endmodule
 
 // --------------------------------------------------------
 // (1) Geração do sinal do canal Z (um pulso por volta)
 // --------------------------------------------------------
 
-module genZ(
-    input clkTz,
-    output Z
-);
+module genZ(input clkTz, output Z);
+    reg outZ = 0;
+    reg [10:0] i = 0;
 
-reg outZ = 0;
-reg [10:0] i = 0;
-
-always @(posedge clkTz) begin
-
-    if (i == 1999) begin
-        i <= 0;
-        outZ <= 1'b1;
-    end
-    else begin
-        i <= i + 1;
-        outZ <= 1'b0;
+    always@(posedge clkTz) begin
+        if(i==1999) begin
+            i<=0;
+            outZ<=1'b1; end
+        else begin
+            i<=i+1;
+            outZ<=1'b0; end
     end
 
-end
-
-assign Z = outZ;
-
+    assign Z = outZ;
 endmodule
 
 // --------------------------------------------------------
 // (2) Módulo gerador de sinais (X,Y,Z)
 // --------------------------------------------------------
 
-module genXYZ(
+module genXYZ (
     input clki,
-    output [2:0] sigXYZ,
-    output clockTz
+    output [2:0] sigXYZ
 );
+    wire clkTz;
 
-wire clkTz_internal;
+    clockDivider1 clkdiv1(
+        .clki (clki),
+        .clko (clkTz)
+    );
 
-clockDivider1 clkdiv1(
-    .clki(clki),
-    .clko(clkTz_internal)
-);
+    genXY genXY1(
+        .clkTz(clkTz),
+        .X    (sigXYZ[0]),
+        .Y    (sigXYZ[1])
+    );
 
-genXY genXY1(
-    .clkTz(clkTz_internal),
-    .X(sigXYZ[0]),
-    .Y(sigXYZ[1])
-);
-
-genZ genZ1(
-    .clkTz(clkTz_internal),
-    .Z(sigXYZ[2])
-);
-
-assign clockTz = clkTz_internal;
-
+    genZ genZ1(
+        .clkTz(clkTz),
+        .Z    (sigXYZ[2])
+    );
 endmodule
 
 // --------------------------------------------------------
@@ -152,7 +143,7 @@ module demux(
     output [7:0] ch_out
 );
 
-assign ch_out = (8'b00000001 << sel) & {8{ch_in}};
+assign ch_out = ch_in << sel;
 
 endmodule
 
@@ -183,10 +174,9 @@ module transmitter(
     input clki,
     input [7:0] muxIn,
     output TXdata,
+    output [2:0] sel,
     output TXclk
 );
-
-wire [2:0] sel;
 
 counter8 cnt2(
     .clki(clki),
@@ -210,11 +200,10 @@ endmodule
 module receiver(
     input clki,
     input demuxIn,
+    input [2:0] sel,
     output [7:0] RXdata,
     output RXclk
 );
-
-wire [2:0] sel;
 
 counter8 cnt3(
     .clki(clki),
