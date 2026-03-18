@@ -4,6 +4,3 @@
 # Output files
 /sim/
 /waves/
-
-# Workflow files
-Makefile
