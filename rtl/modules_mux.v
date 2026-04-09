@@ -9,13 +9,17 @@
 // (1) clock divider geração da base de tempo dos sinais X Y Z
 // --------------------------------------------------------
 
+// --------------------------------------------------------
+// (1) clock divider geração da base de tempo dos sinais X Y Z
+// --------------------------------------------------------
+
 module clockDivider1(
     input clki,
     output clko);
 
     // Clock para o parâmetro Tz. Lembrando que Tx=4.Tz
     // 450m/min: DIV=3141
-    // 600m/min: DIV=2356
+    // 600m/min: DIV=2356 1178
     parameter DIV = 1178;
     reg [11:0] count = 0;
     reg out = 0;
@@ -126,6 +130,7 @@ endmodule
 module mux(
     input  [2:0] sel,
     input  [7:0] ch_in,
+    input  clki, // talvez tenha que inverter
     output ch_out
 );
 
@@ -140,11 +145,25 @@ endmodule
 module demux(
     input  [2:0] sel,
     input  ch_in,
-    output [7:0] ch_out
+    input  clki, // talvez tenha que inverter
+    output reg [7:0] ch_out = 0
 );
 
-assign ch_out = ch_in << sel;
-
+//assign ch_out = ch_in << sel;
+always @ (negedge clki)
+begin
+    case(sel)
+    0: ch_out[0] <= ch_in;
+    1: ch_out[1] <= ch_in;
+    2: ch_out[2] <= ch_in;
+    3: ch_out[3] <= ch_in;
+    4: ch_out[4] <= ch_in;
+    5: ch_out[5] <= ch_in;
+    6: ch_out[6] <= ch_in;
+    7: ch_out[7] <= ch_in;
+    endcase
+end
+ // high speed opto-coupler IC
 endmodule
 
 // --------------------------------------------------------
@@ -185,6 +204,7 @@ counter8 cnt2(
 
 mux mux1(
     .sel(sel),
+    .clki(clki),
     .ch_in(muxIn),
     .ch_out(TXdata)
 );
@@ -194,28 +214,94 @@ assign TXclk = clki;
 endmodule
 
 // --------------------------------------------------------
-// (2) Receptor
+// (2) Receiver
 // --------------------------------------------------------
 
 module receiver(
-    input clki,
-    input demuxIn,
-    input [2:0] sel,
-    output [7:0] RXdata,
-    output RXclk
-);
-
-counter8 cnt3(
-    .clki(clki),
-    .sel(sel)
+    input        clki,
+    input        demuxIn,
+    input  [2:0] sel,
+    output [7:0] RXdata
 );
 
 demux demux1(
     .sel(sel),
+    .clki(clki),
     .ch_in(demuxIn),
-    .ch_out(RXdata)
+    .ch_out(RXdata)  // Direct connection to stable output
 );
 
-assign RXclk = clki;
-
 endmodule
+
+// -------------------------------------------------------- 
+// (3) kitDE0
+// ------------------------------------------------------
+/*module kitDE0 ( 
+    input CLOCK_50, 
+    output [7:0] GPIO1_D
+); 
+
+    wire [31:0] clockVector; 
+    wire [7:0] muxIn; 
+    wire [2:0] sigXYZ; 
+    wire [2:0] sel_wire;
+
+    assign muxIn = {5'b00000, sigXYZ};
+
+    assign GPIO1_D[0] = sigXYZ[0]; 
+    assign GPIO1_D[1] = sigXYZ[1]; 
+    assign GPIO1_D[2] = sigXYZ[2]; 
+
+    clockDiv2n clkdiv2( 
+        .clki (CLOCK_50), 
+        .clko (clockVector)
+    ); 
+
+    genXYZ genXYZ1( 
+        .clki (CLOCK_50), 
+        .sigXYZ (sigXYZ)
+    ); 
+
+    transmitter tx1(
+        .clki   (clockVector[1]), 
+        .muxIn  (muxIn), 
+        .TXdata (GPIO1_D[3]), 
+        .sel    (sel_wire),
+        .TXclk  (GPIO1_D[4])
+    ); 
+
+    assign GPIO1_D[5] = sel_wire[0];
+	 assign GPIO1_D[6] = sel_wire[1];
+	 assign GPIO1_D[7] = sel_wire[2];
+	
+endmodule
+ 
+ // -------------------------------------------------------- 
+// (3) kitDE1
+ // --------------------------------------------------------
+module kitDE1 ( 
+    input [7:0] GPIO1_D,
+    output [7:0] GPIO0_D
+); 
+
+    wire TXdata = GPIO1_D[3];
+    wire TXclk  = GPIO1_D[4];
+
+    wire [2:0] sel;
+    assign sel[0] = GPIO1_D[5];
+    assign sel[1] = GPIO1_D[6];
+    assign sel[2] = GPIO1_D[7];
+
+    wire [7:0] rxdata;
+
+    receiver rx1(
+        .clki    (TXclk), 
+        .demuxIn (TXdata), 
+        .sel     (sel),
+        .RXdata  (rxdata), 
+        .RXclk   ()
+    ); 
+
+    assign GPIO0_D = rxdata;
+
+endmodule*/

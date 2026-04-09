@@ -6,6 +6,7 @@ module tb_tx_rx;
 // Clock
 // ----------------------------------------------------
 reg clk;
+reg rx_reg = 8'b0;
 
 // ----------------------------------------------------
 // Encoder signals
@@ -16,6 +17,7 @@ wire [7:0] muxIn;
 
 wire TXdata;
 wire TXclk;
+wire [3:0] TXsel;
 
 wire [7:0] RXdata;
 wire RXclk;
@@ -37,6 +39,7 @@ transmitter DUT_TX (
     .clki   (clk),
     .muxIn  (muxIn),
     .TXdata (TXdata),
+    .sel    (TXsel),
     .TXclk  (TXclk)
 );
 
@@ -46,8 +49,8 @@ transmitter DUT_TX (
 receiver DUT_RX (
     .clki    (TXclk),
     .demuxIn (TXdata),
-    .RXdata  (RXdata),
-    .RXclk   (RXclk)
+    .sel     (TXsel),
+    .RXdata  (RXdata)
 );
 
 // ----------------------------------------------------
