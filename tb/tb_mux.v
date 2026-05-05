@@ -17,10 +17,8 @@ wire [7:0] muxIn;
 
 wire TXdata;
 wire TXclk;
-wire [3:0] TXsel;
 
 wire [7:0] RXdata;
-wire RXclk;
 
 // ----------------------------------------------------
 // Instantiate XYZ Generator
@@ -35,21 +33,19 @@ assign muxIn = {5'b00000, sigXYZ};
 // ----------------------------------------------------
 // Transmitter
 // ----------------------------------------------------
-transmitter DUT_TX (
+transmitter tx (
     .clki   (clk),
     .muxIn  (muxIn),
     .TXdata (TXdata),
-    .sel    (TXsel),
     .TXclk  (TXclk)
 );
 
 // ----------------------------------------------------
 // Receiver
 // ----------------------------------------------------
-receiver DUT_RX (
+receiver rx (
     .clki    (TXclk),
     .demuxIn (TXdata),
-    .sel     (TXsel),
     .RXdata  (RXdata)
 );
 
@@ -67,7 +63,7 @@ end
 initial begin
     $dumpfile("sim/wave.vcd");
     $dumpvars(0, tb_tx_rx);
-    #100000;
+    #1000000;
     $finish;
 end
 

@@ -128,13 +128,16 @@ endmodule
 // --------------------------------------------------------
 
 module mux(
-    input  [2:0] sel,
+    input  sel,
     input  [7:0] ch_in,
-    input  clki, // talvez tenha que inverter
-    output ch_out
+    input  clki,
+    output reg ch_out
 );
 
-assign ch_out = ch_in[sel];
+always @ (negedge clki)
+begin
+    assign ch_out = ch_in[sel];
+end
 
 endmodule
 
@@ -143,9 +146,9 @@ endmodule
 // --------------------------------------------------------
 
 module demux(
-    input  [2:0] sel,
+    input  sel,
     input  ch_in,
-    input  clki, // talvez tenha que inverter
+    input  clki,
     output reg [7:0] ch_out = 0
 );
 
@@ -172,15 +175,19 @@ endmodule
 
 module counter8(
     input clki,
-    output [2:0] sel
+    output sel
 );
 
 reg [2:0] count = 0;
 
-always @(posedge clki)
-    count <= count + 1;
+always @(posedge clki) begin
+    if (count == 3'd7)
+        count <= 3'd0;
+    else
+        count <= count + 3'd1;
+end
 
-assign sel = count;
+assign sel = (count == 3'd7);
 
 endmodule
 
@@ -193,7 +200,6 @@ module transmitter(
     input clki,
     input [7:0] muxIn,
     output TXdata,
-    output [2:0] sel,
     output TXclk
 );
 
@@ -220,15 +226,19 @@ endmodule
 module receiver(
     input        clki,
     input        demuxIn,
-    input  [2:0] sel,
     output [7:0] RXdata
+);
+
+counter8 cnt2(
+    .clki(clki),
+    .sel(sel)
 );
 
 demux demux1(
     .sel(sel),
     .clki(clki),
     .ch_in(demuxIn),
-    .ch_out(RXdata)  // Direct connection to stable output
+    .ch_out(RXdata)
 );
 
 endmodule
