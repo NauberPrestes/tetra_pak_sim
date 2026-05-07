@@ -5,20 +5,23 @@ module tb_tx_rx;
 // ----------------------------------------------------
 // Clock
 // ----------------------------------------------------
-reg clk;
+reg clk = 0;
 reg rx_reg = 8'b0;
 
 // ----------------------------------------------------
-// Encoder signals
+// Transmitter Signals
 // ----------------------------------------------------
 wire [2:0] sigXYZ;
+wire [7:0] MuxIn;
+wire Reset = 0;
+wire TXdata = 0;
+wire TXclk = 0;
+wire sel = 0;
 
-wire [7:0] muxIn;
-
-wire TXdata;
-wire TXclk;
-
-wire [7:0] RXdata;
+// ----------------------------------------------------
+// Receiver Signals
+// ----------------------------------------------------
+wire [7:0] RXdata = 0;
 
 // ----------------------------------------------------
 // Instantiate XYZ Generator
@@ -28,25 +31,27 @@ genXYZ DUT_XYZ (
     .sigXYZ(sigXYZ)
 );
 
-assign muxIn = {5'b00000, sigXYZ};
+assign MuxIn = {5'b00000, sigXYZ};
 
 // ----------------------------------------------------
 // Transmitter
 // ----------------------------------------------------
 transmitter tx (
-    .clki   (clk),
-    .muxIn  (muxIn),
-    .TXdata (TXdata),
-    .TXclk  (TXclk)
+    .clkIn  (clk),
+    .muxIn  (MuxIn),
+    .txData (TXdata),
+    .txClk  (TXclk),
+    .reset  (Reset)
 );
 
 // ----------------------------------------------------
 // Receiver
 // ----------------------------------------------------
 receiver rx (
-    .clki    (TXclk),
+    .reset    (Reset),
+    .clkIn    (TXclk),
     .demuxIn (TXdata),
-    .RXdata  (RXdata)
+    .rxData  (RXdata)
 );
 
 // ----------------------------------------------------

@@ -43,7 +43,7 @@ endmodule
 	 output reg [31:0] clko 
  ); 
  
- reg [31:0] counter; 
+ reg [31:0] counter = 0; 
  
  always@(posedge clki) 
 	 begin counter <= counter + 1; 
@@ -104,7 +104,7 @@ module genXYZ (
     input clki,
     output [2:0] sigXYZ
 );
-    wire clkTz;
+    wire clkTz = 0;
 
     clockDivider1 clkdiv1(
         .clki (clki),
@@ -124,36 +124,50 @@ module genXYZ (
 endmodule
 
 // --------------------------------------------------------
-// (1) Multiplexador 8x1
+// Multiplexador 8x1
 // --------------------------------------------------------
 
 module mux(
-    input  sel,
-    input  [7:0] ch_in,
-    input  clki,
-    output reg ch_out
+    input  [2:0] sel,
+    input  [7:0] chIn,
+    input  clkIn,
+    output reg chOut
 );
 
-always @ (negedge clki)
+always @(negedge clkIn)
 begin
-    assign ch_out = ch_in[sel];
+    chOut = chIn[sel];
 end
 
 endmodule
 
 // --------------------------------------------------------
-// (1) Demultiplexador 8x1
+// Counter Tx
+// --------------------------------------------------------
+
+module txCounter(
+    input clkIn,
+    output reg [2:0] sel
+);
+
+always @(posedge clkIn) begin
+    sel <= sel + 1;
+end
+
+endmodule
+
+// --------------------------------------------------------
+// Demultiplexador 8x1
 // --------------------------------------------------------
 
 module demux(
-    input  sel,
-    input  ch_in,
-    input  clki,
-    output reg [7:0] ch_out = 0
+    input  [2:0] sel,
+    input  chIn,
+    input  clkIn,
+    output reg [7:0] chOut = 0
 );
 
-//assign ch_out = ch_in << sel;
-always @ (negedge clki)
+always @ (negedge clkIn)
 begin
     case(sel)
     0: ch_out[0] <= ch_in;
@@ -169,53 +183,87 @@ end
  // high speed opto-coupler IC
 endmodule
 
+endmodule
+
 // --------------------------------------------------------
-// (1) couter8: gerador do sinal sel do multiplexador
+// Counter Rx
 // --------------------------------------------------------
 
-module counter8(
-    input clki,
-    output sel
+module rxCounter(
+    input clkIn,
+    input reset,
+    output reg [2:0] sel
 );
 
-reg [2:0] count = 0;
-
-always @(posedge clki) begin
-    if (count == 3'd7)
-        count <= 3'd0;
-    else
-        count <= count + 3'd1;
+always @(negedge reset) begin
+    sel <= 0;
 end
 
-assign sel = (count == 3'd7);
+always @(negedge clkIn) begin
+    sel <= sel + 1;
+end
 
 endmodule
 
+// --------------------------------------------------------
+// Sync
+// --------------------------------------------------------
+
+module sync(
+    input [2:0] selTx,
+    input clkTx,
+    output reg reset
+);
+
+    always @(posedge clkTx) begin
+        if (!selTx) begin
+            reset = 1;
+        end
+        else begin
+            reset = 0;
+        end
+    end
+
+endmodule
 
 // --------------------------------------------------------
-// (2) Transmissor
+// Transmissor
 // --------------------------------------------------------
 
 module transmitter(
-    input clki,
+    input clkIn,
     input [7:0] muxIn,
-    output TXdata,
-    output TXclk
+    output txData,
+    output txClk,
+    output reset
 );
 
-counter8 cnt2(
-    .clki(clki),
+wire [2:0] sel = 0;
+
+txCounter TxCounter(
+    .clkIn(clkIn),
     .sel(sel)
 );
 
-mux mux1(
-    .sel(sel),
-    .clki(clki),
-    .ch_in(muxIn),
-    .ch_out(TXdata)
+genXYZ GenXYZ(
+    .clki(clkIn),
+    .sigXYZ(muxIn)
 );
 
-assign TXclk = clki;
+mux Mux(
+    .sel(sel),
+    .clkIn(clkIn),
+    .chIn(muxIn),
+    .chOut(txData)
+);
+
+sync Sync(
+    .selTx(sel),
+    .clkTx(clkIn),
+    .reset(reset)
+);
+
+assign txClk = clkIn;
 
 endmodule
 
@@ -224,43 +272,44 @@ endmodule
 // --------------------------------------------------------
 
 module receiver(
-    input        clki,
+    input        clkIn,
     input        demuxIn,
-    output [7:0] RXdata
+    input        reset,
+    output [7:0] rxData
 );
 
-counter8 cnt2(
-    .clki(clki),
+wire [2:0] sel = 0;
+
+rxCounter RxCounter(
+    .clkIn(clkIn),
+    .reset(reset),
     .sel(sel)
 );
 
-demux demux1(
+demux Demux(
     .sel(sel),
-    .clki(clki),
-    .ch_in(demuxIn),
-    .ch_out(RXdata)
+    .clkIn(clkIn),
+    .chIn(demuxIn),
+    .chOut(rxData)
 );
 
 endmodule
-
+/*
 // -------------------------------------------------------- 
 // (3) kitDE0
 // ------------------------------------------------------
-/*module kitDE0 ( 
+module kitDE0 ( 
     input CLOCK_50, 
-    output [7:0] GPIO1_D
+    output [14:0] GPIO1_D,
+	 input [7:0] GPIO0_D
 ); 
 
     wire [31:0] clockVector; 
     wire [7:0] muxIn; 
     wire [2:0] sigXYZ; 
-    wire [2:0] sel_wire;
-
-    assign muxIn = {5'b00000, sigXYZ};
-
-    assign GPIO1_D[0] = sigXYZ[0]; 
-    assign GPIO1_D[1] = sigXYZ[1]; 
-    assign GPIO1_D[2] = sigXYZ[2]; 
+	 wire [7:0] rxData;
+	 wire txClk;
+	 wire txData;
 
     clockDiv2n clkdiv2( 
         .clki (CLOCK_50), 
@@ -273,45 +322,25 @@ endmodule
     ); 
 
     transmitter tx1(
-        .clki   (clockVector[1]), 
-        .muxIn  (muxIn), 
-        .TXdata (GPIO1_D[3]), 
-        .sel    (sel_wire),
-        .TXclk  (GPIO1_D[4])
-    ); 
+    .clki   (clockVector[1]),
+    .muxIn  (muxIn),
+    .TXdata (txdata),
+    .TXclk  (txclk)
+);
 
-    assign GPIO1_D[5] = sel_wire[0];
-	 assign GPIO1_D[6] = sel_wire[1];
-	 assign GPIO1_D[7] = sel_wire[2];
+		receiver rx1(
+			 .clki    (txclk),
+			 .demuxIn (txdata),
+			 .RXdata  (rxdata)
+		);
+		assign muxIn = {5'b00000, sigXYZ};
+
+		assign GPIO1_D[0] = sigXYZ[0]; 
+		assign GPIO1_D[1] = sigXYZ[1]; 
+		assign GPIO1_D[2] = sigXYZ[2]; 
+	 
+		assign GPIO1_D[3] = txData;
+		assign GPIO1_D[4] = txClk;
+		assign GPIO1_D[12:5] = rxData;
 	
-endmodule
- 
- // -------------------------------------------------------- 
-// (3) kitDE1
- // --------------------------------------------------------
-module kitDE1 ( 
-    input [7:0] GPIO1_D,
-    output [7:0] GPIO0_D
-); 
-
-    wire TXdata = GPIO1_D[3];
-    wire TXclk  = GPIO1_D[4];
-
-    wire [2:0] sel;
-    assign sel[0] = GPIO1_D[5];
-    assign sel[1] = GPIO1_D[6];
-    assign sel[2] = GPIO1_D[7];
-
-    wire [7:0] rxdata;
-
-    receiver rx1(
-        .clki    (TXclk), 
-        .demuxIn (TXdata), 
-        .sel     (sel),
-        .RXdata  (rxdata), 
-        .RXclk   ()
-    ); 
-
-    assign GPIO0_D = rxdata;
-
 endmodule*/
