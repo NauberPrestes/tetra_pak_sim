@@ -20,7 +20,8 @@ wire TXclk;
 // Receiver Signals
 // ----------------------------------------------------
 wire [7:0] RXdata;
-wire [2:0] Sel;
+wire [2:0] SelRx;
+wire [2:0] SelTx;
 
 // ----------------------------------------------------
 // Instantiate XYZ Generator
@@ -40,7 +41,8 @@ transmitter tx (
     //.muxIn  (MuxIn),
     .txData (TXdata),
     .txClk  (TXclk),
-    .reset  (Reset)
+    .reset  (Reset),
+    .sel     (SelTx)
 );
 
 // ----------------------------------------------------
@@ -51,7 +53,7 @@ receiver rx (
     .clkIn    (TXclk),
     .demuxIn (TXdata),
     .rxData  (RXdata),
-    .sel     (Sel)
+    .sel     (SelRx)
 );
 
 // ----------------------------------------------------

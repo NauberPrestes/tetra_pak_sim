@@ -169,16 +169,7 @@ module demux(
 
 always @ (negedge clkIn)
 begin
-    case(sel)
-    0: chOut[0] <= chIn;
-    1: chOut[1] <= chIn;
-    2: chOut[2] <= chIn;
-    3: chOut[3] <= chIn;
-    4: chOut[4] <= chIn;
-    5: chOut[5] <= chIn;
-    6: chOut[6] <= chIn;
-    7: chOut[7] <= chIn;
-    endcase
+    chOut[sel] <= chIn;
 end
 
 endmodule
@@ -193,12 +184,13 @@ module rxCounter(
     output reg [2:0] sel = 0
 );
 
-always @(negedge reset) begin
-    sel <= 0;
-end
-
 always @(negedge clkIn) begin
-    sel <= sel + 1;
+    if (reset) begin
+        sel <= 0;
+    end
+    else begin
+        sel <= sel + 1;
+    end
 end
 
 endmodule
@@ -213,8 +205,9 @@ module sync(
     output reg reset = 0
 );
 
-    always @(clkTx) begin
-        if (!selTx & clkTx) begin
+    always @(clkTx) 
+    begin
+        if ((selTx == 0)) begin
             reset = 1;
         end
         else if (!clkTx) begin
@@ -233,10 +226,11 @@ module transmitter(
     //input [7:0] muxIn,
     output txData,
     output txClk,
-    output reset
+    output reset,
+    // Tb signals
+    output [2:0] sel
 );
 
-wire [2:0] sel;
 wire [2:0] muxIn;
 
 txCounter TxCounter(
