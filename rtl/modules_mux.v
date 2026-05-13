@@ -104,7 +104,7 @@ module genXYZ (
     input clki,
     output [2:0] sigXYZ
 );
-    wire clkTz = 0;
+    wire clkTz;
 
     clockDivider1 clkdiv1(
         .clki (clki),
@@ -131,10 +131,10 @@ module mux(
     input  [2:0] sel,
     input  [7:0] chIn,
     input  clkIn,
-    output reg chOut
+    output reg chOut = 0
 );
 
-always @(negedge clkIn)
+always @(posedge clkIn)
 begin
     chOut = chIn[sel];
 end
@@ -147,7 +147,7 @@ endmodule
 
 module txCounter(
     input clkIn,
-    output reg [2:0] sel
+    output reg [2:0] sel = 0
 );
 
 always @(posedge clkIn) begin
@@ -170,18 +170,16 @@ module demux(
 always @ (negedge clkIn)
 begin
     case(sel)
-    0: ch_out[0] <= ch_in;
-    1: ch_out[1] <= ch_in;
-    2: ch_out[2] <= ch_in;
-    3: ch_out[3] <= ch_in;
-    4: ch_out[4] <= ch_in;
-    5: ch_out[5] <= ch_in;
-    6: ch_out[6] <= ch_in;
-    7: ch_out[7] <= ch_in;
+    0: chOut[0] <= chIn;
+    1: chOut[1] <= chIn;
+    2: chOut[2] <= chIn;
+    3: chOut[3] <= chIn;
+    4: chOut[4] <= chIn;
+    5: chOut[5] <= chIn;
+    6: chOut[6] <= chIn;
+    7: chOut[7] <= chIn;
     endcase
 end
- // high speed opto-coupler IC
-endmodule
 
 endmodule
 
@@ -192,7 +190,7 @@ endmodule
 module rxCounter(
     input clkIn,
     input reset,
-    output reg [2:0] sel
+    output reg [2:0] sel = 0
 );
 
 always @(negedge reset) begin
@@ -212,14 +210,14 @@ endmodule
 module sync(
     input [2:0] selTx,
     input clkTx,
-    output reg reset
+    output reg reset = 0
 );
 
-    always @(posedge clkTx) begin
-        if (!selTx) begin
+    always @(clkTx) begin
+        if (!selTx & clkTx) begin
             reset = 1;
         end
-        else begin
+        else if (!clkTx) begin
             reset = 0;
         end
     end
@@ -232,13 +230,14 @@ endmodule
 
 module transmitter(
     input clkIn,
-    input [7:0] muxIn,
+    //input [7:0] muxIn,
     output txData,
     output txClk,
     output reset
 );
 
-wire [2:0] sel = 0;
+wire [2:0] sel;
+wire [2:0] muxIn;
 
 txCounter TxCounter(
     .clkIn(clkIn),
@@ -253,7 +252,7 @@ genXYZ GenXYZ(
 mux Mux(
     .sel(sel),
     .clkIn(clkIn),
-    .chIn(muxIn),
+    .chIn({5'b00000, muxIn}),
     .chOut(txData)
 );
 
@@ -275,10 +274,10 @@ module receiver(
     input        clkIn,
     input        demuxIn,
     input        reset,
-    output [7:0] rxData
+    output [7:0] rxData,
+    // Tb signals
+    output [2:0] sel
 );
-
-wire [2:0] sel = 0;
 
 rxCounter RxCounter(
     .clkIn(clkIn),
